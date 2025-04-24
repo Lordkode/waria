@@ -1,10 +1,8 @@
 name: Backend CI
 
 on:
-  pull_request:
-    branches: [stagging]
   push:
-    branches: [main, prod]
+    branches: [main, prod, stagging]
 
 jobs:
   build:
