@@ -25,3 +25,6 @@ jobs:
 
       - name: Run integration tests
         run: npm run test:integration
+
+      - name: Integration test passed
+        run: echo "✅ Integration tests passed"

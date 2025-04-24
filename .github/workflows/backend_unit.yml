@@ -24,4 +24,7 @@ jobs:
         run: npm ci
 
       - name: Run unit tests
-        run: npm test
+        run: npm run test:unit
+
+      - name: Unit test passed
+        run: echo "✅ Unit tests passed"

@@ -25,3 +25,6 @@ jobs:
 
       - name: Run E2E tests
         run: npm run test:e2e
+
+      - name: End to End test passed
+        run: echo "✅ End to End tests passed"
