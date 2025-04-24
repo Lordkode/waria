@@ -1,0 +1,32 @@
+name: Backend CI
+
+on:
+  pull_request:
+    branches: [master, stagging]
+
+jobs:
+  backend-ci:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+  call-tests: # This job calls the backend test workflow
+    needs: backend-ci
+    uses: ./.github/workflows/backend_test.yml
+
+  call-format: # This job calls the backend format check workflow
+    needs: call-tests
+    uses: ./.github/workflows/backend_format.yml
