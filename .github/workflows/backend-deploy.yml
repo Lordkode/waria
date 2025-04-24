@@ -12,6 +12,10 @@ jobs:
       ${{ github.event.workflow_run.conclusion == 'success' &&
           github.event.workflow_run.head_branch == 'prod' }}
     runs-on: ubuntu-latest
+    defaults: 
+      run: 
+        working-directory: ./backend
+        
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
