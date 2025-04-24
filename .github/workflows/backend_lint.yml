@@ -1,15 +1,19 @@
-name: Backend CI
+name: Backend Lint
 
 on:
-  push:
-    branches: [main, prod, stagging]
+  workflow_run:
+    workflows: ["Backend CI"]
+    types:
+      - completed
 
 jobs:
-  build:
+  lint:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     defaults: 
       run: 
         working-directory: ./backend
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -17,10 +21,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: 18
 
       - name: Install dependencies
         run: npm install
 
-      - name: Basic build check
-        run: echo "✅ Basic build passed"
+      - name: Run ESLint
+        run: npm run lint
