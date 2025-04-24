@@ -1,0 +1,33 @@
+name: Backend Unit Tests
+
+on:
+  workflow_run:
+    workflows: ["Backend Lint"]
+    types:
+      - completed
+
+jobs:
+  unit-tests:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    defaults: 
+      run: 
+        working-directory: ./backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Unit test passed
+        run: echo "✅ Unit tests passed"
