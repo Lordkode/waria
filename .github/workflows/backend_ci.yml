@@ -3,11 +3,11 @@ name: Backend CI
 on:
   pull_request:
     branches: [stagging]
-  push:
+  push: 
     branches: [main, prod]
 
 jobs:
-  backend-ci:
+  build:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -28,7 +28,7 @@ jobs:
         run: echo "✅ Basic build passed"
 
   call_lint:
-    needs: backend-ci
+    needs: build
     uses: ./.github/workflows/backend_lint.yml
 
   call_unit_tests:
