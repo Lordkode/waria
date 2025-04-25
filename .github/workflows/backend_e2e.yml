@@ -3,6 +3,10 @@ name: Backend E2E Tests
 on:
   workflow_call: # Utilisation de workflow_call pour être appelé par un autre workflow
 
+permissions:
+  contents: read
+  id-token: write # Nécessaire pour l'authentification GCP avec Workload Identity
+
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest
@@ -24,6 +28,9 @@ jobs:
 
       - name: Install playwright browsers
         run: npx playwright install
+
+      - name: Create .env file
+        run: echo "${{ secrets.ENV_FILE }}" > .env
 
       - name: Start backend server
         run: npm run start &
