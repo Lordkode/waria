@@ -1,15 +1,10 @@
 name: Backend Lint
 
 on:
-  workflow_call:
-    inputs:
-      trigger_source:
-        required: true
-        type: string
+  workflow_call:  # Utilisation de workflow_call pour être appelé par un autre workflow
 
 jobs:
   lint:
-    if: ${{ github.event.inputs.trigger_source == 'Backend CI' }}
     runs-on: ubuntu-latest
     defaults: 
       run: 
@@ -22,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Install dependencies
         run: npm install
