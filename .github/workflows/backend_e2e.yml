@@ -1,13 +1,13 @@
 name: Backend E2E Tests
 
 on:
-  workflow_call:  # Utilisation de workflow_call pour être appelé par un autre workflow
+  workflow_call: # Utilisation de workflow_call pour être appelé par un autre workflow
 
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest
-    defaults: 
-      run: 
+    defaults:
+      run:
         working-directory: ./backend
 
     steps:
@@ -30,3 +30,9 @@ jobs:
 
       - name: Run E2E tests
         run: npm run test:e2e
+
+  deploy:
+    needs: e2e-tests
+    if: github.ref == 'refs/heads/prod' && github.event_name == 'push'
+    uses: ./.github/workflows/backend_deploy.yml
+    secrets: inherit
