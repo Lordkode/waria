@@ -37,8 +37,10 @@ jobs:
       - name: Create .env file
         run: echo "${{ secrets.ENV_FILE }}" > .env
 
-      - name: Build project
-        run: npm run build
+      - name: Start backend server
+        run: npm run start &  # Démarre le serveur en arrière-plan
+        env:
+          NODE_ENV: production  # Définit l'environnement de production
 
       - name: Authenticate to Google Cloud
         id: auth
