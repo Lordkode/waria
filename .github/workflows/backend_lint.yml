@@ -1,14 +1,15 @@
 name: Backend Lint
 
 on:
-  workflow_run:
-    workflows: ["Backend CI"]
-    types:
-      - completed
+  workflow_call:
+    inputs:
+      trigger_source:
+        required: true
+        type: string
 
 jobs:
   lint:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.inputs.trigger_source == 'Backend CI' }}
     runs-on: ubuntu-latest
     defaults: 
       run: 

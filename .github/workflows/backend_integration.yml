@@ -1,14 +1,15 @@
 name: Backend Integration Tests
 
 on:
-  workflow_run:
-    workflows: ["Backend Unit Tests"]
-    types:
-      - completed
+  workflow_call:
+    inputs:
+      trigger_source:
+        required: true
+        type: string
 
 jobs:
   integration-tests:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.inputs.trigger_source == 'Backend Unit Tests' }}
     runs-on: ubuntu-latest
     defaults: 
       run: 

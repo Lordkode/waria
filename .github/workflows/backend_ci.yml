@@ -1,14 +1,16 @@
 name: Backend CI
 
 on:
+  pull_request:
+    branches: [stagging]
   push:
-    branches: [main, prod, stagging]
+    branches: [main, prod]
 
 jobs:
-  build:
+  backend-ci:
     runs-on: ubuntu-latest
-    defaults: 
-      run: 
+    defaults:
+      run:
         working-directory: ./backend
     steps:
       - name: Checkout code
@@ -24,3 +26,19 @@ jobs:
 
       - name: Basic build check
         run: echo "✅ Basic build passed"
+
+  call_lint:
+    needs: backend-ci
+    uses: ./.github/workflows/backend_lint.yml
+
+  call_unit_tests:
+    needs: call_lint
+    uses: ./.github/workflows/backend_unit.yml
+
+  call_integration_tests:
+    needs: call_unit_tests
+    uses: ./.github/workflows/backend_integration.yml
+
+  call_e2e_tests:
+    needs: call_integration_tests
+    uses: ./.github/workflows/backend_e2e.yml
