@@ -1,14 +1,15 @@
 name: Backend E2E Tests
 
 on:
-  workflow_run:
-    workflows: ["Backend Integration Tests"]
-    types:
-      - completed
+  workflow_call:
+    inputs:
+      trigger_source:
+        required: true
+        type: string
 
 jobs:
   e2e-tests:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.inputs.trigger_source == 'Backend Integration Tests' }}
     runs-on: ubuntu-latest
     defaults: 
       run: 
@@ -31,3 +32,9 @@ jobs:
 
       - name: End to End test passed
         run: echo "✅ End to End tests passed"
+
+  call_backend_deploy:
+    needs: e2e-tests
+    uses: ./.github/workflows/backend_deploy.yml
+    with:
+      trigger_source: 'Backend E2E Tests'

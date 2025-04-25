@@ -1,14 +1,15 @@
 name: Backend Unit Tests
 
 on:
-  workflow_run:
-    workflows: ["Backend Lint"]
-    types:
-      - completed
+  workflow_call:
+    inputs:
+      trigger_source:
+        required: true
+        type: string
 
 jobs:
   unit-tests:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.inputs.trigger_source == 'Backend Lint' }}
     runs-on: ubuntu-latest
     defaults: 
       run: 
