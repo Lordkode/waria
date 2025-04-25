@@ -5,6 +5,10 @@ on:
     branches: [stagging]
   push: 
     branches: [main, prod]
+  
+permissions:
+  contents: read
+  id-token: write  # Nécessaire pour l'authentification GCP avec Workload Identity
 
 jobs:
   build:

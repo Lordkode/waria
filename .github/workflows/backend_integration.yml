@@ -3,6 +3,10 @@ name: Backend Integration Tests
 on:
   workflow_call:  # Utilisation de workflow_call pour être appelé par un autre workflow
 
+permissions:
+  contents: read
+  id-token: write # Nécessaire pour l'authentification GCP avec Workload Identity
+  
 jobs:
   integration-tests:
     runs-on: ubuntu-latest
