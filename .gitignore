@@ -8,3 +8,5 @@ backend/*.log
 backend/.DS_Store
 backend/.vscode/
 backend/.idea/
+backend/.history/
+backend/test-results/
