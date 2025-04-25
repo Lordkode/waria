@@ -8,7 +8,8 @@
     "lint": "eslint .",
     "test:integration": "npx playwright test integration",
     "test:e2e": "npx playwright test e2e",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
