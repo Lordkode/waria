@@ -44,10 +44,10 @@ jobs:
 
       - name: Authenticate to Google Cloud
         id: auth
-        uses: google-github-actions/auth@v1  # Méthode d'authentification plus récente et sécurisée
+        uses: google-github-actions/auth@v2  # Méthode d'authentification plus récente et sécurisée
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
-          token_format: 'access_token'
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
