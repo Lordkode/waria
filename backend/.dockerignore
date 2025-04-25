@@ -1,0 +1,21 @@
+# Évite de copier les modules locaux (ils seront installés dans l'image)
+node_modules
+
+# Fichier d'environnement sensible
+.env
+
+# Logs
+*.log
+
+# Test reports
+coverage
+test-results
+
+# Système / IDE
+.DS_Store
+.vscode
+.idea
+
+# Git
+.git
+.gitignore
