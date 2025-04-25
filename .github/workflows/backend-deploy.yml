@@ -1,21 +1,16 @@
 name: Backend Deploy
 
 on:
-  workflow_run:
-    workflows: ["Backend E2E Tests"]
-    types:
-      - completed
+  workflow_call:  # Utilisation de workflow_call pour être appelé par un autre workflow
 
 jobs:
   deploy:
-    if: >
-      ${{ github.event.workflow_run.conclusion == 'success' &&
-          github.event.workflow_run.head_branch == 'prod' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'prod' }}
     runs-on: ubuntu-latest
     defaults: 
       run: 
         working-directory: ./backend
-        
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
