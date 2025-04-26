@@ -1,51 +1,52 @@
 "use strict";
 const { Model, DataTypes } = require("sequelize");
+const sequelize = require("../config/database");
 
-module.exports = (sequelize) => {
-  class PayrollSystem extends Model {
-    static associate(models) {
-      // Define associations here
-      PayrollSystem.belongsTo(models.Payment, {
-        foreignKey: "paymentId",
-        as: "payment",
-      });
-    }
+class PayrollSystem extends Model {
+  static associate(models) {
+    // Define associations here
+    PayrollSystem.belongsTo(models.Payment, {
+      foreignKey: "paymentId",
+      as: "payment",
+    });
   }
-  PayrollSystem.init(
+}
+
+PayrollSystem.init(
     {
-      id: {
+        id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
         allowNull: false,
-      },
-      paymentId: {
+        },
+        paymentId: {
         type: DataTypes.UUID,
         allowNull: false,
         references: {
-          model: "payments",
-          key: "id",
+            model: "payments",
+            key: "id",
         },
         onDelete: "CASCADE",
         onUpdate: "CASCADE",
-      },
-      createdAt: {
+        },
+        createdAt: {
         type: DataTypes.DATE,
         allowNull: false,
         defaultValue: DataTypes.NOW,
-      },
-      updatedAt: {
+        },
+        updatedAt: {
         type: DataTypes.DATE,
         allowNull: false,
         defaultValue: DataTypes.NOW,
-      },
+        },
     },
     {
-      sequelize,
-      modelName: "PayrollSystem",
-      tableName: "payroll_systems",
-      timestamps: true,
+        sequelize,
+        modelName: "PayrollSystem",
+        tableName: "payroll_systems",
+        timestamps: true,
     }
-  );
-  return PayrollSystem;
-};
+);
+
+module.exports = PayrollSystem;
