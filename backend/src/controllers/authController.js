@@ -87,14 +87,13 @@ class AuthController {
       if (error.name === "SequelizeUniqueConstraintError") {
         const constraint = error.errors[0].path;
 
-        let message = "";
+        let message = "Validation error";
         if (constraint === "email") {
           message = "Email already exists";
         } else if (constraint === "username") {
           message = "Username already exists";
-        } else {
-          message = "Validation error";
-        }
+        } 
+        
         return res.status(400).json({
           message: message,
         });
