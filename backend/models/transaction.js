@@ -1,49 +1,82 @@
 "use strict";
 const { Model, DataTypes } = require("sequelize");
+const sequelize = require("../config/database");
 
-module.exports = (sequelize) => {
-  class Transaction extends Model {}
-  Transaction.init(
+class Transaction extends Model {
+  static associate(models) {
+    // Define associations here
+    Transaction.belongsTo(models.User, {
+      foreignKey: "userId",
+      as: "user",
+    });
+    Transaction.belongsTo(models.Employer, {
+      foreignKey: "employerId",
+      as: "employer",
+    });
+  }
+}
+
+Transaction.init(
     {
-      id: {
+        id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
         allowNull: false,
-      },
-      transactionDate: {
+        },
+        userId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: "users",
+            key: "id",
+        },
+        onDelete: "CASCADE",
+        onUpdate: "CASCADE",
+        },
+        employerId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: "employers",
+            key: "id",
+        },
+        onDelete: "CASCADE",
+        onUpdate: "CASCADE",
+        },
+        transactionDate: {
         type: DataTypes.DATE,
         allowNull: false,
-      },
-      type: {
+        },
+        type: {
         type: DataTypes.ENUM("credit", "debit"),
         allowNull: false,
-      },
-      desciption: {
+        },
+        description: {
         type: DataTypes.STRING,
         allowNull: false,
-      },
-      status: {
+        },
+        status: {
         type: DataTypes.ENUM("pending", "completed", "failed"),
         allowNull: false,
-      },
-      createdAt: {
+        },
+        createdAt: {
         type: DataTypes.DATE,
         allowNull: false,
         defaultValue: DataTypes.NOW,
-      },
-      updatedAt: {
+        },
+        updatedAt: {
         type: DataTypes.DATE,
         allowNull: false,
         defaultValue: DataTypes.NOW,
-      },
+        },
     },
     {
-      sequelize,
-      modelName: "Transaction",
-      tableName: "transactions",
-      timestamps: true,
+        sequelize,
+        modelName: "Transaction",
+        tableName: "transactions",
+        timestamps: true,
     }
-  );
-  return Transaction;
-};
+)
+
+module.exports = Transaction;
