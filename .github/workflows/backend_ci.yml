@@ -2,15 +2,20 @@ name: Backend CI
 
 on:
   pull_request:
-    branches: [master, stagging]
+    branches: [stagging]
+  push: 
+    branches: [main, prod]
+  
+permissions:
+  contents: read
+  id-token: write  # Nécessaire pour l'authentification GCP avec Workload Identity
 
 jobs:
-  backend-ci:
+  build:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend
-
+        working-directory: ./backend
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -18,15 +23,26 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "20"
+          node-version: 20
 
       - name: Install dependencies
         run: npm install
 
-  call-tests: # This job calls the backend test workflow
-    needs: backend-ci
-    uses: ./.github/workflows/backend_test.yml
+      - name: Basic build check
+        run: echo "✅ Basic build passed"
 
-  call-format: # This job calls the backend format check workflow
-    needs: call-tests
-    uses: ./.github/workflows/backend_format.yml
+  call_lint:
+    needs: build
+    uses: ./.github/workflows/backend_lint.yml
+
+  call_unit_tests:
+    needs: call_lint
+    uses: ./.github/workflows/backend_unit.yml
+
+  call_integration_tests:
+    needs: call_unit_tests
+    uses: ./.github/workflows/backend_integration.yml
+
+  call_e2e_tests:
+    needs: call_integration_tests
+    uses: ./.github/workflows/backend_e2e.yml

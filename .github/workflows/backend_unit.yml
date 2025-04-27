@@ -1,0 +1,30 @@
+name: Backend Unit Tests
+
+on:
+  workflow_call:  # Utilisation de workflow_call pour être appelé par un autre workflow
+
+permissions:
+  contents: read
+  id-token: write # Nécessaire pour l'authentification GCP avec Workload Identity
+  
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    defaults: 
+      run: 
+        working-directory: ./backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run unit tests
+        run: npm run test:unit

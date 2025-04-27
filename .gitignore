@@ -1,2 +1,12 @@
 backend/node_modules
 backend/.env
+backend/.playwright/
+backend/coverage/
+backend/.jest/
+backend/npm-debug.log
+backend/*.log
+backend/.DS_Store
+backend/.vscode/
+backend/.idea/
+backend/.history/
+backend/test-results/

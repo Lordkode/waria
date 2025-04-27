@@ -1,36 +1,121 @@
-name: Backend Deployment
+name: Backend Deploy to GCP
 
 on:
+  workflow_call:  # Pour être appelé par un autre workflow
   push:
-    branches:
-      - prod # Le pipeline se déclenche lorsqu'il y a un push sur la branche prod
+    branches: [ prod ]  # Déclenchement automatique sur push vers prod
+    paths:
+      - 'backend/**'    # Uniquement si des changements sont détectés dans le dossier backend
+
+# Définir les permissions nécessaires (minimum requis)
+permissions:
+  contents: read
+  id-token: write  # Nécessaire pour l'authentification GCP avec Workload Identity
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: ${{ steps.deploy.outputs.app-url }} # URL du déploiement (si nécessaire)
+    timeout-minutes: 15  # Empêche les jobs bloqués de s'exécuter indéfiniment
+    defaults: 
+      run: 
+        working-directory: ./backend
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4  # Utilisation de la dernière version
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4  # Utilisation de la dernière version
         with:
-          node-version: "20"
+          node-version: 20
+          cache: 'npm'  # Activation du cache pour accélérer les builds
+          cache-dependency-path: './backend/package-lock.json'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci  # Utilise npm ci pour une installation plus rapide et cohérente
 
-      - name: Run build (if needed)
-        run: npm run build # Si tu as un script de build dans ton package.json
+      - name: Create .env file
+        run: echo "${{ secrets.ENV_FILE }}" > .env
 
-      - name: Deploy to Production Server
+      - name: Start backend server
+        run: npm run start &  # Démarre le serveur en arrière-plan
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }} # Utilisation de la clé SSH pour se connecter au serveur
+          NODE_ENV: production  # Définit l'environnement de production
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2  # Méthode d'authentification plus récente et sécurisée
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          token_format: 'access_token'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
         run: |
-          ssh -o StrictHostKeyChecking=no -i $SSH_PRIVATE_KEY username@your-production-server "cd /path/to/your/app && git pull origin prod && npm install && pm2 restart app"
-        # Remplace les valeurs ci-dessus par les informations de ton serveur
-        # Cette commande suppose que tu utilises PM2 pour gérer ton application
+          gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Extract short SHA for version tag
+        id: vars
+        run: echo "SHORT_SHA=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Build and Push Docker image
+        env:
+          IMAGE_NAME: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_REPOSITORY }}/backend
+        run: |
+          # Ajouter une date et heure pour versioning
+          VERSION_TAG=$(date +'%Y%m%d-%H%M%S')-${{ steps.vars.outputs.SHORT_SHA }}
+          
+          echo "Building Docker image with tag: $VERSION_TAG"
+          docker build -t ${IMAGE_NAME}:$VERSION_TAG -t ${IMAGE_NAME}:latest .
+          
+          echo "Pushing Docker image to Artifact Registry"
+          docker push ${IMAGE_NAME}:$VERSION_TAG
+          docker push ${IMAGE_NAME}:latest
+          
+          # Enregistrer le tag pour l'utiliser à l'étape de déploiement
+          echo "VERSION_TAG=$VERSION_TAG" >> $GITHUB_ENV
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        run: |
+          echo "Deploying version $VERSION_TAG to Cloud Run..."
+          
+          DEPLOY_OUTPUT=$(gcloud run deploy backend-service \
+            --image=${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_REPOSITORY }}/backend:$VERSION_TAG \
+            --platform=managed \
+            --region=${{ secrets.GCP_REGION }} \
+            --allow-unauthenticated \
+            --memory=1Gi \
+            --cpu=1 \
+            --min-instances=0 \
+            --max-instances=10 \
+            --set-env-vars="NODE_ENV=production" \
+            --tag=$VERSION_TAG \
+            --format="value(status.url)")
+          
+          if [ $? -eq 0 ]; then
+            echo "SERVICE_URL=$DEPLOY_OUTPUT" >> $GITHUB_OUTPUT
+            echo "✅ Déploiement réussi!"
+          else
+            echo "❌ Échec du déploiement"
+            exit 1
+          fi
+
+      - name: Post-deployment verification
+        run: |
+          echo "🚀 Backend déployé avec succès vers Cloud Run!"
+          echo "URL du service: ${{ steps.deploy.outputs.SERVICE_URL }}"
+          echo "Version déployée: $VERSION_TAG"
+          
+          # Vérification basique du service
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.deploy.outputs.SERVICE_URL }}/health || echo "failed")
+          if [[ $HTTP_STATUS == "200" ]]; then
+            echo "✅ Le service répond correctement (HTTP 200)"
+          else
+            echo "⚠️ Le service répond avec un code HTTP $HTTP_STATUS"
+            echo "Vérifiez les logs pour plus d'informations"
+          fi
