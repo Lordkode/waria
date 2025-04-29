@@ -7,8 +7,8 @@ class UserService {
   }
 
   // Method to get user by id
-  async getUserById(id) {
-    const user = await this.userRepository.findById(id);
+  async getUserById(id, { transaction } = {}) {
+    const user = await this.userRepository.findById(id, { transaction });
     if (!user) {
       return ResponseHandler.failure("User not found");
     }
@@ -16,8 +16,10 @@ class UserService {
   }
 
   // Method to get user by email
-  async getUserByEmail(email) {
-    const user = await this.userRepository.findUserByEmail(email);
+  async getUserByEmail(email, { transaction } = {}) {
+    const user = await this.userRepository.findUserByEmail(email, {
+      transaction,
+    });
     if (!user) {
       return ResponseHandler.failure("User not found");
     }
@@ -25,28 +27,32 @@ class UserService {
   }
 
   // Method to create a new user
-  async createUser(userData) {
-    const newUser = await this.userRepository.createUser(userData);
+  async createUser(userData, { transaction } = {}) {
+    const newUser = await this.userRepository.createUser(userData, {
+      transaction,
+    });
     return ResponseHandler.success(newUser);
   }
 
   //Method to update user
-  async updateUser(id, userData) {
-    const user = await this.userRepository.findById(id);
+  async updateUser(id, userData, { transaction } = {}) {
+    const user = await this.userRepository.findById(id, { transaction });
     if (!user) {
       return ResponseHandler.failure("User not found");
     }
-    const updatedUser = await this.userRepository.updateUser(id, userData);
+    const updatedUser = await this.userRepository.updateUser(id, userData, {
+      transaction,
+    });
     return ResponseHandler.success(updatedUser);
   }
 
   // Method to delete user
-  async deleteUser(id) {
-    const user = await this.userRepository.findById(id);
+  async deleteUser(id, { transaction } = {}) {
+    const user = await this.userRepository.findById(id, { transaction });
     if (!user) {
       return ResponseHandler.failure("User not found");
     }
-    await this.userRepository.deleteUser(id);
+    await this.userRepository.deleteUser(id, { transaction });
     return ResponseHandler.success("User deleted successfully");
   }
 }

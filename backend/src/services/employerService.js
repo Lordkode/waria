@@ -7,24 +7,27 @@ class EmployerService {
   }
 
   // Method to create a new employer
-  async createEmployer(employerData) {
+  async createEmployer(employerData, { transaction } = {}) {
     const newEmployer = await this.employerRepository.createEmployer(
-      employerData
+      employerData,
+      { transaction }
     );
     return ResponseHandler.success(newEmployer);
   }
 
   // Method to update employer
-  async updateEmployer(id, employerData) {
+  async updateEmployer(id, employerData, { transaction } = {}) {
     const employer = await this.employerRepository.findByUserId(
-      employerData.userId
+      employerData.userId,
+      { transaction }
     );
     if (!employer) {
       return ResponseHandler.failure("Employer not found");
     }
     const updatedEmployer = await this.employerRepository.updateEmployer(
       id,
-      employerData
+      employerData,
+      { transaction }
     );
     return ResponseHandler.success(updatedEmployer);
   }

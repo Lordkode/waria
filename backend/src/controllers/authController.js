@@ -2,6 +2,7 @@ const UserService = require("../services/userService");
 const TokenService = require("../services/tokenService");
 const EmployerService = require("../services/employerService");
 const EmailConnector = require("../integrations/emails/emailConnector");
+const sequelize = require("../../config/database");
 
 class AuthController {
   constructor() {
@@ -12,6 +13,7 @@ class AuthController {
   }
 
   async register(req, res) {
+    const transaction = await sequelize.transaction();
     try {
       // Get user data from request body
       const {
@@ -25,13 +27,16 @@ class AuthController {
       } = req.body;
 
       // Create new user
-      const newUserResponse = await this.userService.createUser({
-        email,
-        password,
-        username,
-        fullName,
-        isActive,
-      });
+      const newUserResponse = await this.userService.createUser(
+        {
+          email,
+          password,
+          username,
+          fullName,
+          isActive,
+        },
+        { transaction }
+      );
 
       if (!newUserResponse.success) {
         return res.status(400).json({
@@ -43,14 +48,18 @@ class AuthController {
       const newUser = newUserResponse.data;
 
       // Create new employer
-      const newEmployeurResponse = await this.employerService.createEmployer({
-        userId: newUser.id,
-        companyName,
-        companyRegistrationNumber,
-      });
+      const newEmployeurResponse = await this.employerService.createEmployer(
+        {
+          userId: newUser.id,
+          companyName,
+          companyRegistrationNumber,
+        },
+        { transaction }
+      );
 
       if (!newEmployeurResponse.success) {
-        await this.userService.deleteUser(newUser.id); // Rollback user creation
+        // Rollback transaction
+        await transaction.rollback();
         return res.status(400).json({
           message: newEmployeurResponse.message,
         });
@@ -69,6 +78,10 @@ class AuthController {
         to: newUser.email,
         verificationCode: "32f4e3d2",
       });
+
+      // Commit that transaction
+      await transaction.commit();
+
       // Return success response
       return res.status(201).json({
         message: "Employer created successfully",
@@ -84,6 +97,9 @@ class AuthController {
         token: token,
       });
     } catch (error) {
+      // Rollback transaction if there is an error
+      await transaction.rollback();
+
       if (error.name === "SequelizeUniqueConstraintError") {
         const constraint = error.errors[0].path;
 
@@ -92,8 +108,8 @@ class AuthController {
           message = "Email already exists";
         } else if (constraint === "username") {
           message = "Username already exists";
-        } 
-        
+        }
+
         return res.status(400).json({
           message: message,
         });

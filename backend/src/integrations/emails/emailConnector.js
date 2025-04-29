@@ -1,10 +1,12 @@
-const BravoConnector = require("../emails/brevoConnector");
-//const Mailgunconnector = require("../emails/mailgunConnector");
+const BrevoConnector = require("../emails/brevoConnector");
+const MailjetConnector = require("../emails/mailjetConnector");
 
 class EmailConnector {
   constructor() {
-    this.brevo = new BravoConnector();
-    //this.mailgun = new Mailgunconnector();
+    this.connectors = [
+      new BrevoConnector(),
+      new MailjetConnector(),
+    ];
   }
 
   async sendVerificationEmail({ to, verificationCode }) {
@@ -23,16 +25,26 @@ class EmailConnector {
 
     const subject = "Vérifiez votre adresse e-mail";
 
-    let result = await this.brevo.sendEmail({
-      to,
-      subject,
-      html,
-      text: `Merci de vous être inscrit ! Voici votre code de vérification : ${verificationCode}. Ce code expirera dans quelques minutes.`,
-      transporter: this.brevo.transporter,
-      sender: process.env.MAIL_BREVO_SENDER,
-    });
+    const errors = [];
 
-    return result;
+    for (const connector of this.connectors) {
+      try {
+        const result = await connector.sendEmail({ to, subject, html });
+        console.log(`Email envoyé avec ${connector.constructor.name}`);
+        return result;
+      } catch (error) {
+        console.warn(
+          `Error with ${connector.constructor.name} :`,
+          error.message
+        );
+        errors.push({
+          connector: connector.constructor.name,
+          error: error.message,
+        });
+      }
+    }
+
+    throw new Error(`Cann't send email. Details : ${JSON.stringify(errors)}`);
   }
 }
 
