@@ -15,11 +15,21 @@ class AuthRoutes extends RouteInterface {
       throw new Error("authController.register is not a function");
     }
 
+    // Register route
     this.router.post("/register", (req, res) =>
       AuthController.register(req, res)
     );
+    // Activate user account route
     this.router.post("/activate", (req, res) => {
       AuthController.activateAccount(req, res);
+    });
+    // login route
+    this.router.post("/login", (req, res) => {
+      AuthController.login(req, res);
+    });
+    // Refresh token route
+    this.router.post("/refresh-token", (req, res) => {
+      AuthController.refreshToken(req, res);
     });
 
     this.addRoute({

@@ -117,7 +117,7 @@ class AuthController {
     }
   }
 
-  // Activate Account function 
+  // Activate Account function
   async activateAccount(req, res) {
     const { email, code } = req.body;
     const transaction = await sequelize.transaction();
@@ -167,23 +167,32 @@ class AuthController {
       await this.redisClient.del(key);
 
       // Generate JWT token
-      const token = await this.tokenService.generateAccessToken({
+      const payload = {
         id: updateResponse.data.id,
         email: updateResponse.data.email,
         isActive: updateResponse.data.isActive,
         username: updateResponse.data.username,
-        fullname: updateResponse.data.fullname,
-      });
+        fullName: updateResponse.data.fullName,
+      };
+
+      const accessToken = await this.tokenService.generateAccessToken(payload);
+
+      // Genrate refresh token
+      const refreshToken = await this.tokenService.generateRefreshToken(
+        payload
+      );
+      const refreshTokenKey = `refresh:${updateResponse.data.email}`;
+      await this.redisClient.set(refreshTokenKey, refreshToken, { EX: 604800 });
 
       // Commit transaction
       await transaction.commit();
 
       return res.status(200).json({
         message: "User activate successfully !",
-        token: token,
+        token: accessToken,
         user: {
           username: updateResponse.data.username,
-          fullname: updateResponse.data.fullname,
+          fullName: updateResponse.data.fullName,
           email: userResponse.data.email,
           id: userResponse.data.id,
         },
@@ -193,8 +202,114 @@ class AuthController {
       console.error("Error while active user !");
       return res.status(500).json({ message: "Internal server error ", error });
     }
-  };
+  }
 
   // Login function
+  async login(req, res) {
+    const { email, password } = req.body;
+    try {
+      // check if email or password is passed to request body
+      if (!email || !password) {
+        return res
+          .status(400)
+          .json({ message: "Email and password required !" });
+      }
+
+      // Get user with his email
+      const userResponse = await this.userService.getUserByEmail(email);
+      if (!userResponse || !userResponse.data) {
+        return res
+          .status(404)
+          .json({ message: "User with that email not found !" });
+      }
+
+      const user = userResponse.data;
+      if (!user.isActive) {
+        return res.status(403).json({ message: "Unauthorized !" });
+      }
+
+      // Check password match
+      const isPasswordMatch = this.helpers.comparePassword(
+        password,
+        user.password
+      );
+      if (!isPasswordMatch) {
+        return res.status(400).json({
+          message: "Password is incorrect !",
+        });
+      }
+
+      // Generate access and refresh token
+      const payload = {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        fullName: user.fullName,
+      };
+      const refreshTokenKey = `refresh:${user.email}`;
+      const accessToken = await this.tokenService.generateAccessToken(payload);
+      const refreshToken = await this.tokenService.generateRefreshToken(
+        payload
+      );
+      await this.redisClient.set(refreshTokenKey, refreshToken, { EX: 604800 });
+
+      return res.status(200).json({
+        success: true,
+        message: "User logging successfully !",
+        token: accessToken,
+      });
+    } catch (error) {
+      console.error("Error while connecting user !");
+      return res
+        .status(500)
+        .json({ message: "Internal server error :", error });
+    }
+  }
+
+  // Refresh Token function
+  async refreshToken(req, res) {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({
+          message: "Authorization header missing !",
+        });
+      }
+
+      const oldAccessToken = authHeader.split(" ")[1];
+
+      // Read payload even token expired
+      const payload = await this.tokenService.decodeToken(oldAccessToken);
+      if (!payload) {
+        return res.status(401).json({ message: "Invalid access token !" });
+      }
+
+      // get refresh token from accesstoken email
+      const refresTokenKey = `refresh:${payload.email}`;
+      const storedRefreshToken = await this.redisClient.get(refresTokenKey);
+
+      if (!storedRefreshToken) {
+        return res.status(401).json({ message: "Refresh token not found !" });
+      }
+
+      // Generate new access token
+      const newAccessToken = await this.tokenService.generateAccessToken({
+        id: payload.id,
+        email: payload.email,
+        username: payload.username,
+        fullName: payload.fullName,
+      });
+
+      return res.status(200).json({
+        message: "New access token generate successfully !",
+        token: newAccessToken,
+      });
+    } catch (error) {
+      console.error("Error during token refresh :", error);
+      return res
+        .status(500)
+        .json({ message: "Internal server error", error: error.message });
+    }
+  }
 }
 module.exports = new AuthController();

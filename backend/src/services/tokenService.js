@@ -36,7 +36,12 @@ class TokenService {
 
   // Method to decode token
   decodeToken(token) {
-    return jwt.decode(token);
+    try {
+      const payload = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+      return payload;
+    } catch (error) {
+      return console.error("Token verify error:", error);
+    }
   }
 }
 
