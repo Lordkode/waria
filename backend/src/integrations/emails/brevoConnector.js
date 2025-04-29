@@ -11,7 +11,7 @@ class BrevoConnector extends BaseConnector {
       secure: false,
       auth: {
         user: process.env.MAIL_BREVO_USER,
-        pass: process.env.MAIL_BREVO_PASS,
+        pass: process.env.MAIL_BREVO_PASSWORD,
       },
     });
     this.sender = process.env.MAIL_BREVO_FROM_EMAIL;
