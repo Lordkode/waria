@@ -117,6 +117,55 @@ class AuthController {
     }
   }
 
+  // Fonction to resend new confirmation code
+  async confirmationcode(req, res) {
+    try {
+      const { email } = req.body;
+
+      const userResponse = await this.userService.getUserByEmail(email);
+
+      if (!userResponse) {
+        return res.status(404).json({ message: "User not created !" });
+      }
+
+      if (userResponse.data.isActive) {
+        return res
+          .status(400)
+          .json({ message: "Your account is already activate !" });
+      }
+
+      const key = `user:${email}`;
+      const code = await this.redisClient.get(key);
+
+      if (code) {
+        await this.redisClient.del(key);
+      }
+
+      // Generate new confirmation code
+      const newConfirmationCode = this.helpers.generateConfirmationCode();
+
+      // Send new code to user
+      await this.emailConnector.sendVerificationEmail({
+        to: email,
+        verificationCode: newConfirmationCode,
+      });
+
+      // Redis storage
+      await this.redisClient.set(key, newConfirmationCode, { EX: 600 });
+
+      return res.status(200).json({
+        success: true,
+        message: "New code send to user email adress !",
+      });
+    } catch (error) {
+      console.error("Error while resend confirmation code :", error);
+      res.status(500).json({
+        message: "Internal server error ",
+        error: error.message,
+      });
+    }
+  }
+
   // Activate Account function
   async activateAccount(req, res) {
     const { email, code } = req.body;

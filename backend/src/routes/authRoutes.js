@@ -31,6 +31,10 @@ class AuthRoutes extends RouteInterface {
     this.router.post("/refresh-token", (req, res) => {
       AuthController.refreshToken(req, res);
     });
+    // Resend confirmation code to user route
+    this.router.post("/resend-code", (req, res) => {
+      AuthController.confirmationcode(req, res);
+    });
 
     this.addRoute({
       path: "/auth",
