@@ -3,6 +3,8 @@ const TokenService = require("../services/tokenService");
 const EmployerService = require("../services/employerService");
 const EmailConnector = require("../integrations/emails/emailConnector");
 const sequelize = require("../../config/database");
+const Helpers = require("../utils/helpers");
+const redisClient = require("../../config/redis");
 
 class AuthController {
   constructor() {
@@ -10,8 +12,11 @@ class AuthController {
     this.tokenService = TokenService;
     this.employerService = new EmployerService();
     this.emailConnector = new EmailConnector();
+    this.helpers = Helpers;
+    this.redisClient = redisClient;
   }
 
+  // Register function
   async register(req, res) {
     const transaction = await sequelize.transaction();
     try {
@@ -65,18 +70,19 @@ class AuthController {
         });
       }
 
-      // Generate token for the new user
-      const token = this.tokenService.generateAccessToken({
-        id: newUser.id,
-        email: newUser.email,
-        username: newUser.username,
-        fullName: newUser.fullName,
-        isActive: newUser.isActive,
-      });
+      // Generate confirmation code
+      const code = this.helpers.generateConfirmationCode();
 
+      // Generate redis key
+      const key = `user:${newUser.email}`;
+
+      // Save confirmation code to redis for 10 min
+      await this.redisClient.set(key, code, { EX: 600 });
+
+      // Send email to new user
       await this.emailConnector.sendVerificationEmail({
         to: newUser.email,
-        verificationCode: "32f4e3d2",
+        verificationCode: code,
       });
 
       // Commit that transaction
@@ -85,16 +91,6 @@ class AuthController {
       // Return success response
       return res.status(201).json({
         message: "Employer created successfully",
-        employeur: {
-          email: newUser.email,
-          username: newUser.username,
-          fullName: newUser.fullName,
-          companyName: newEmployeurResponse.data.companyName,
-          companyRegistrationNumber:
-            newEmployeurResponse.data.companyRegistrationNumber,
-          isActive: newUser.isActive,
-        },
-        token: token,
       });
     } catch (error) {
       // Rollback transaction if there is an error
@@ -120,5 +116,85 @@ class AuthController {
       });
     }
   }
+
+  // Activate Account function 
+  async activateAccount(req, res) {
+    const { email, code } = req.body;
+    const transaction = await sequelize.transaction();
+    try {
+      // Generate redis key
+      const key = `user:${email}`;
+
+      // Get content
+      const storedCode = await this.redisClient.get(key);
+
+      // If ther is no code
+      if (!storedCode) {
+        return res.status(400).json({
+          message: "Confirmation code has expired or does not exist",
+        });
+      }
+
+      // Compare code
+      if (storedCode !== code) {
+        return res.status(400).json({ message: "Invalid confirmation code !" });
+      }
+
+      // get user with that email
+      const userResponse = await this.userService.getUserByEmail(email, {
+        transaction,
+      });
+      // G
+      if (!userResponse.success) {
+        return res.status(404).json({ message: "User not found !" });
+      }
+
+      // Get data and activate user
+      const user = userResponse.data;
+
+      if (user.isActive) {
+        return res.status(400).json({ message: "User is already activate" });
+      }
+
+      const updateResponse = await this.userService.updateUser(
+        user.id,
+        {
+          isActive: true,
+        },
+        { transaction }
+      );
+
+      await this.redisClient.del(key);
+
+      // Generate JWT token
+      const token = await this.tokenService.generateAccessToken({
+        id: updateResponse.data.id,
+        email: updateResponse.data.email,
+        isActive: updateResponse.data.isActive,
+        username: updateResponse.data.username,
+        fullname: updateResponse.data.fullname,
+      });
+
+      // Commit transaction
+      await transaction.commit();
+
+      return res.status(200).json({
+        message: "User activate successfully !",
+        token: token,
+        user: {
+          username: updateResponse.data.username,
+          fullname: updateResponse.data.fullname,
+          email: userResponse.data.email,
+          id: userResponse.data.id,
+        },
+      });
+    } catch (error) {
+      await transaction.rollback();
+      console.error("Error while active user !");
+      return res.status(500).json({ message: "Internal server error ", error });
+    }
+  };
+
+  // Login function
 }
 module.exports = new AuthController();

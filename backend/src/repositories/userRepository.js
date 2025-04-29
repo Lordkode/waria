@@ -51,6 +51,7 @@ class UserRepository {
         username: userData.username,
         email: userData.email,
         fullName: userData.fullName,
+        isActive: userData.isActive,
         updatedAt: new Date(),
       },
       { transaction }

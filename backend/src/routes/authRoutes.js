@@ -18,6 +18,9 @@ class AuthRoutes extends RouteInterface {
     this.router.post("/register", (req, res) =>
       AuthController.register(req, res)
     );
+    this.router.post("/activate", (req, res) => {
+      AuthController.activateAccount(req, res);
+    });
 
     this.addRoute({
       path: "/auth",
