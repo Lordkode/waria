@@ -38,6 +38,10 @@ class AuthRoutes extends RouteInterface {
     this.router.post("/change-password", (req, res) => {
       AuthController.changePassword(req, res);
     });
+    // logout route
+    this.router.post("/logout", (req, res) => {
+      AuthController.logout(req, res);
+    });
 
     this.addRoute({
       path: "/auth",

@@ -462,5 +462,48 @@ class AuthController {
       });
     }
   }
+
+  // Logout function
+  async logout(req, res) {
+    try {
+      // Get token from header
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({
+          message: "Authorization header missing!",
+        });
+      }
+
+      // Get access token
+      const accessToken = authHeader.split(" ")[1];
+
+      // Decode accessToken
+      const payload = await this.tokenService.decodeToken(accessToken);
+      if (!payload) {
+        return res.status({
+          message: "Invalid access token",
+        });
+      }
+
+      // Delete refresh token
+      const refreshTokenKey = `refresh:${payload.email}`;
+      const exists = await this.redisClient.exists(refreshTokenKey);
+
+      if (exists) {
+        await this.redisClient.del(refreshTokenKey);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "User logged out successfully !",
+      });
+    } catch (error) {
+      console.error("Error during logout :", error);
+      return res.status(500).json({
+        message: "Internal server error",
+        error: error.message,
+      });
+    }
+  }
 }
 module.exports = new AuthController();
