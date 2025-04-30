@@ -8,22 +8,25 @@ class UserService {
 
   // Method to get user by id
   async getUserById(id, { transaction } = {}) {
-    const user = await this.userRepository.findById(id, { transaction });
-    if (!user) {
-      return ResponseHandler.failure("User not found");
-    }
-    return ResponseHandler.success(user);
+    const user = await this.userRepository.findById(id, {
+      attributes: ["id"],
+      transaction,
+    });
+    return user
+      ? ResponseHandler.success(user)
+      : ResponseHandler.failure("User not found !");
   }
 
   // Method to get user by email
-  async getUserByEmail(email, { transaction } = {}) {
+  async getUserByEmail(email, { attributes = ["id"], transaction } = {}) {
     const user = await this.userRepository.findUserByEmail(email, {
+      attributes,
       transaction,
     });
-    if (!user) {
-      return ResponseHandler.failure("User not found");
-    }
-    return ResponseHandler.success(user);
+
+    return user
+      ? ResponseHandler.success(user)
+      : ResponseHandler.failure("User not found !");
   }
 
   // Method to create a new user

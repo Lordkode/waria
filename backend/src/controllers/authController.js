@@ -121,14 +121,13 @@ class AuthController {
   async confirmationcode(req, res) {
     try {
       const { email } = req.body;
+      const { data: user } = await this.userService.getUserByEmail(email, {
+        attributes: ["id", "isActive"],
+      });
 
-      const userResponse = await this.userService.getUserByEmail(email);
+      if (!user) return res.status(404).json({ message: "User not found !" });
 
-      if (!userResponse) {
-        return res.status(404).json({ message: "User not created !" });
-      }
-
-      if (userResponse.data.isActive) {
+      if (user.isActive) {
         return res
           .status(400)
           .json({ message: "Your account is already activate !" });
@@ -191,6 +190,7 @@ class AuthController {
 
       // get user with that email
       const userResponse = await this.userService.getUserByEmail(email, {
+        attributes: ["id", "email", "isActive"],
         transaction,
       });
       // G
@@ -220,8 +220,6 @@ class AuthController {
         id: updateResponse.data.id,
         email: updateResponse.data.email,
         isActive: updateResponse.data.isActive,
-        username: updateResponse.data.username,
-        fullName: updateResponse.data.fullName,
       };
 
       const accessToken = await this.tokenService.generateAccessToken(payload);
@@ -240,10 +238,9 @@ class AuthController {
         message: "User activate successfully !",
         token: accessToken,
         user: {
-          username: updateResponse.data.username,
-          fullName: updateResponse.data.fullName,
-          email: userResponse.data.email,
           id: userResponse.data.id,
+          email: userResponse.data.email,
+          isActive: userResponse.data.isActive,
         },
       });
     } catch (error) {
@@ -265,7 +262,9 @@ class AuthController {
       }
 
       // Get user with his email
-      const userResponse = await this.userService.getUserByEmail(email);
+      const userResponse = await this.userService.getUserByEmail(email, {
+        attributes: ["id", "email", "password", "isActive"],
+      });
       if (!userResponse || !userResponse.data) {
         return res
           .status(404)
@@ -278,10 +277,11 @@ class AuthController {
       }
 
       // Check password match
-      const isPasswordMatch = this.helpers.comparePassword(
+      const isPasswordMatch = await this.helpers.comparePassword(
         password,
         user.password
       );
+
       if (!isPasswordMatch) {
         return res.status(400).json({
           message: "Password is incorrect !",
@@ -292,8 +292,6 @@ class AuthController {
       const payload = {
         id: user.id,
         email: user.email,
-        username: user.username,
-        fullName: user.fullName,
       };
       const refreshTokenKey = `refresh:${user.email}`;
       const accessToken = await this.tokenService.generateAccessToken(payload);
@@ -368,15 +366,19 @@ class AuthController {
     try {
       const { email } = req.body;
 
-      const userResponse = await this.userService.getUserByEmail(email);
+      const userResponse = await this.userService.getUserByEmail(email, {
+        attributes: ["id"],
+      });
       if (!userResponse || !userResponse.data) {
-        res.status(404).json({ message: "User with that email not found !" });
+        return res
+          .status(404)
+          .json({ message: "User with that email not found !" });
       }
 
       const key = `reset:${email}`;
-      const storedCode = await redisClient.get(key);
+      const storedCode = await this.redisClient.get(key);
       if (storedCode) {
-        await redisClient.del(key);
+        await this.redisClient.del(key);
       }
 
       const code = this.helpers.generateConfirmationCode();
@@ -412,7 +414,10 @@ class AuthController {
         });
       }
 
-      const userResponse = await this.userService.getUserByEmail(email);
+      const userResponse = await this.userService.getUserByEmail(email, {
+        attributes: ["id", "password"],
+        transaction,
+      });
       if (!userResponse || !userResponse.data) {
         return res.status(404).json({
           message: `User with email : ${email} not found !`,
@@ -421,7 +426,7 @@ class AuthController {
 
       // redis get code
       const key = `reset:${email}`;
-      const storedCode = await redisClient.get(key);
+      const storedCode = await this.redisClient.get(key);
 
       if (!storedCode) {
         return res.status(401).json({
@@ -445,7 +450,7 @@ class AuthController {
         { transaction }
       );
 
-      await redisClient.del(key);
+      await this.redisClient.del(key);
 
       await transaction.commit();
 
@@ -454,7 +459,7 @@ class AuthController {
         message: "Password changed successfully !",
       });
     } catch (error) {
-      (await transaction).rollback();
+      await transaction.rollback();
       console.error("Error while change password", error);
       return res.status(500).json({
         message: "Internal server error",
@@ -480,8 +485,8 @@ class AuthController {
       // Decode accessToken
       const payload = await this.tokenService.decodeToken(accessToken);
       if (!payload) {
-        return res.status({
-          message: "Invalid access token",
+        return res.status(401).json({
+          message: "Invalid access token !",
         });
       }
 

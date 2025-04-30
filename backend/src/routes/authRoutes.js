@@ -1,6 +1,8 @@
 const express = require("express");
 const AuthController = require("../controllers/authController");
 const RouteInterface = require("./routeInterface");
+const Validator = require("../middlewares/authMiddlewares");
+const AuthSchemas = require("../validations/schemas/authSchema");
 
 class AuthRoutes extends RouteInterface {
   constructor() {
@@ -11,17 +13,23 @@ class AuthRoutes extends RouteInterface {
 
   initializeRoutes() {
     // Register route
-    this.router.post("/register", (req, res) =>
-      AuthController.register(req, res)
+    this.router.post(
+      "/register",
+      Validator.validate(AuthSchemas.register()),
+      (req, res) => AuthController.register(req, res)
     );
     // Activate user account route
-    this.router.post("/activate", (req, res) => {
-      AuthController.activateAccount(req, res);
-    });
+    this.router.post(
+      "/activate",
+      Validator.validate(AuthSchemas.activateAccount()),
+      (req, res) => AuthController.activateAccount(req, res)
+    );
     // login route
-    this.router.post("/login", (req, res) => {
-      AuthController.login(req, res);
-    });
+    this.router.post(
+      "/login",
+      Validator.validate(AuthSchemas.login()),
+      (req, res) => AuthController.login(req, res)
+    );
     // Refresh token route
     this.router.post("/refresh-token", (req, res) => {
       AuthController.refreshToken(req, res);

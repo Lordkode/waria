@@ -13,15 +13,19 @@ class UserRepository {
   }
 
   // Method to get user by id
-  async findById(id, { transaction } = {}) {
+  async findById(id, { attributes = ["id"], transaction } = {}) {
     transaction = transaction || this.transaction;
-    return await this.model.findByPk(id, { transaction });
+    return await this.model.findByPk(id, { attributes, transaction });
   }
 
   // Method to find user by email
-  async findUserByEmail(email, { transaction } = {}) {
+  async findUserByEmail(email, { attributes = ["id"], transaction } = {}) {
     transaction = transaction || this.transaction;
-    return await this.model.findOne({ where: { email }, transaction });
+    return await this.model.findOne({
+      where: { email },
+      attributes,
+      transaction,
+    });
   }
 
   // Method to create a new user
