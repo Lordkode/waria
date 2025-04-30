@@ -10,11 +10,6 @@ class AuthRoutes extends RouteInterface {
   }
 
   initializeRoutes() {
-    // check authController.register type
-    if (typeof AuthController.register !== "function") {
-      throw new Error("authController.register is not a function");
-    }
-
     // Register route
     this.router.post("/register", (req, res) =>
       AuthController.register(req, res)
@@ -34,6 +29,14 @@ class AuthRoutes extends RouteInterface {
     // Resend confirmation code to user route
     this.router.post("/resend-code", (req, res) => {
       AuthController.confirmationcode(req, res);
+    });
+    // Initiate reset password route
+    this.router.post("/reset-password", (req, res) => {
+      AuthController.sendResetPasswordCode(req, res);
+    });
+    // Change password route
+    this.router.post("/change-password", (req, res) => {
+      AuthController.changePassword(req, res);
     });
 
     this.addRoute({

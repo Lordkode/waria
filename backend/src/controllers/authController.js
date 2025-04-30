@@ -349,6 +349,8 @@ class AuthController {
         fullName: payload.fullName,
       });
 
+      // Generate new refresh token
+
       return res.status(200).json({
         message: "New access token generate successfully !",
         token: newAccessToken,
@@ -358,6 +360,106 @@ class AuthController {
       return res
         .status(500)
         .json({ message: "Internal server error", error: error.message });
+    }
+  }
+
+  // Send Reset password code
+  async sendResetPasswordCode(req, res) {
+    try {
+      const { email } = req.body;
+
+      const userResponse = await this.userService.getUserByEmail(email);
+      if (!userResponse || !userResponse.data) {
+        res.status(404).json({ message: "User with that email not found !" });
+      }
+
+      const key = `reset:${email}`;
+      const storedCode = await redisClient.get(key);
+      if (storedCode) {
+        await redisClient.del(key);
+      }
+
+      const code = this.helpers.generateConfirmationCode();
+      await this.redisClient.set(key, code, { EX: 600 });
+
+      // Send email to user
+      await this.emailConnector.resetPasswordCodeEmail({
+        to: email,
+        code: code,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Reset password send to ${email}`,
+      });
+    } catch (error) {
+      console.error("Error sending reset password code :", error);
+      return res.status(500).json({
+        message: "Internal server error",
+        error: error.message,
+      });
+    }
+  }
+
+  // Change password
+  async changePassword(req, res) {
+    const { email, code, password } = req.body;
+    const transaction = await sequelize.transaction();
+    try {
+      if (!email || !code) {
+        return res.status(400).json({
+          message: "Email or verification code is required !",
+        });
+      }
+
+      const userResponse = await this.userService.getUserByEmail(email);
+      if (!userResponse || !userResponse.data) {
+        return res.status(404).json({
+          message: `User with email : ${email} not found !`,
+        });
+      }
+
+      // redis get code
+      const key = `reset:${email}`;
+      const storedCode = await redisClient.get(key);
+
+      if (!storedCode) {
+        return res.status(401).json({
+          message: "Reset password code expire; please aske new code",
+        });
+      }
+
+      if (code !== storedCode) {
+        return res.status(400).json({
+          message: "Reset password code is incorrect !",
+        });
+      }
+
+      // Hashed password
+      const hashedPassword = await this.helpers.hashPassword(password);
+      await this.userService.updateUser(
+        userResponse.data.id,
+        {
+          password: hashedPassword,
+        },
+        { transaction }
+      );
+
+      await redisClient.del(key);
+
+      await transaction.commit();
+
+      return res.status(200).json({
+        success: true,
+        message: "Password changed successfully !",
+      });
+    } catch (error) {
+      (await transaction).rollback();
+      console.error("Error while change password", error);
+      return res.status(500).json({
+        message: "Internal server error",
+        error: error.message,
+      });
     }
   }
 }
