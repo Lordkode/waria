@@ -6,6 +6,22 @@ class EmployerService {
     this.employerRepository = repository;
   }
 
+  // Method to Get employer by id
+  async getEmployerById(id, { transaction }) {
+    const employer = await this.employerRepository.findById(id, {
+      transaction,
+    });
+
+    return employer;
+  }
+
+  // Method to Get employeur by user id
+  async getEmployerByUserId(userId, { transaction }) {
+    const employer = await this.employerRepository.findByUserId(userId, {
+      transaction,
+    });
+    return employer;
+  }
   // Method to create a new employer
   async createEmployer(employerData, { transaction } = {}) {
     const newEmployer = await this.employerRepository.createEmployer(

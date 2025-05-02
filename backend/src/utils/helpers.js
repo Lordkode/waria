@@ -47,6 +47,39 @@ class Helper {
 
     return code;
   }
+
+  // Generte username
+  generateUserName(fullName) {
+    const parts = fullName.trim().split(/\s+/);
+    const lastTwo = parts.slice(-2).join("");
+    const username = lastTwo.toLowerCase();
+
+    return username;
+  }
+
+  // Generate random password
+  generatePassword(length = 8) {
+    const lowercase = "abcdefghijklmnopqrstuvwxyz";
+    const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const numbers = "0123456789";
+    const symbols = "@#$%^&*()_+!~`-=[]{},.<>?/|";
+
+    const allChars = lowercase + uppercase + numbers + symbols;
+
+    const required = [
+      lowercase[Math.floor(Math.random() * lowercase.length)],
+      uppercase[Math.floor(Math.random() * uppercase.length)],
+      numbers[Math.floor(Math.random() * numbers.length)],
+      symbols[Math.floor(Math.random() * symbols.length)],
+    ];
+
+    let password = required;
+
+    for (let i = required.length; i < length; i++) {
+      password.push(allChars[Math.floor(Math.random() * allChars.length)]);
+    }
+    return password.sort(() => Math.random() - 0.5).join("");
+  }
 }
 
 module.exports = new Helper();

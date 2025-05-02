@@ -50,13 +50,17 @@ class UserRepository {
   // Method to update user
   async updateUser(id, userData, { transaction } = {}) {
     transaction = transaction || this.transaction;
-    const user = await this.findById(id);
+    const user = await this.findById(id, {
+      attributes: ["id", "email", "isActive", "username", "fullName", "role"],
+      transaction,
+    });
     return await user.update(
       {
         username: userData.username,
         email: userData.email,
         password: userData.password,
         fullName: userData.fullName,
+        role: userData.role,
         isActive: userData.isActive,
         updatedAt: new Date(),
       },

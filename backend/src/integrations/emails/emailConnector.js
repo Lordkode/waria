@@ -83,6 +83,57 @@ class EmailConnector {
 
     throw new Error(`Cann't send email. Details : ${JSON.stringify(errors)}`);
   }
+
+  async sendAccountCreationEmail({ to, username, password, fullName }) {
+    const emailContent = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 20px;">
+      <h2>Bienvenue ${fullName},</h2>
+      <p>Nous sommes heureux de vous informer que votre compte a bien été créé sur notre plateforme.</p>
+  
+      <p>Voici vos informations de connexion :</p>
+      <ul style="list-style: none; padding: 0;">
+        <li><strong>Adresse e-mail :</strong> ${to}</li>
+        <li><strong>Nom d'utilisateur :</strong> ${username}</li>
+        <li><strong>Mot de passe temporaire :</strong> ${password}</li>
+      </ul>
+  
+      <p>Vous pouvez dès à présent accéder à votre espace personnel à l’aide de ces identifiants.</p>
+  
+      <p><strong>Important :</strong> Pour des raisons de sécurité, vous pourrez modifier votre mot de passe et votre nom d'utilisateur à tout moment depuis votre profil sur l'application.</p>
+  
+      <p>Si vous avez des questions ou besoin d’aide, n’hésitez pas à nous contacter.</p>
+  
+      <p style="margin-top: 30px;">Cordialement,<br>L’équipe RH</p>
+    </div>
+  `;
+
+    const subject = "Bienvenue sur notre plateforme – Vos accès personnels";
+
+    const errors = [];
+
+    for (const connector of this.connectors) {
+      try {
+        const result = await connector.sendEmail({
+          to: to,
+          subject: subject,
+          html: emailContent,
+        });
+        console.log(`Email send with ${connector.constructor.name}`);
+        return result;
+      } catch (error) {
+        console.warn(
+          `Error with ${connector.constructor.name} :`,
+          error.message
+        );
+        errors.push({
+          connector: connector.constructor.name,
+          error: error.message,
+        });
+      }
+    }
+
+    throw new Error(`Cann't send email. Details : ${JSON.stringify(errors)}`);
+  }
 }
 
 module.exports = EmailConnector;

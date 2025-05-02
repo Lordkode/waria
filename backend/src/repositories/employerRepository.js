@@ -27,15 +27,15 @@ class EmployeurRepository {
   }
 
   // Method to get employer by id
-  async findById(id, { transaction } = {}) {
+  async findById(id, { attributes = ["id"], transaction } = {}) {
     transaction = transaction || this.transaction;
-    return await this.model.findByPk(id, { transaction });
+    return await this.model.findByPk(id, { attributes, transaction });
   }
 
   // Method to get employeur by userId
-  async findByUserId(userId, { transaction } = {}) {
+  async findByUserId(userId, { attributes = ["id"], transaction } = {}) {
     transaction = transaction || this.transaction;
-    return this.model.findOne({ where: { userId }, transaction });
+    return this.model.findOne({ where: { userId }, attributes, transaction });
   }
 
   // Method to update empployer

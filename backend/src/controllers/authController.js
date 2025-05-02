@@ -28,6 +28,7 @@ class AuthController {
         password,
         username,
         fullName,
+        role = "employer",
         isActive = false,
         companyName,
         companyRegistrationNumber,
@@ -40,6 +41,7 @@ class AuthController {
           password,
           username,
           fullName,
+          role,
           isActive,
         },
         { transaction }
@@ -175,7 +177,7 @@ class AuthController {
     try {
       // get user with that email
       const userResponse = await this.userService.getUserByEmail(email, {
-        attributes: ["id", "email", "isActive"],
+        attributes: ["id", "email", "isActive", "role"],
         transaction,
       });
 
@@ -221,9 +223,12 @@ class AuthController {
 
       await this.redisClient.del(key);
 
+      console.log(updateResponse.data);
+
       // Generate JWT token
       const payload = {
         id: updateResponse.data.id,
+        role: updateResponse.data.role,
         email: updateResponse.data.email,
         isActive: updateResponse.data.isActive,
       };
@@ -242,9 +247,10 @@ class AuthController {
         message: "User activated successfully!",
         token: accessToken,
         user: {
-          id: userResponse.data.id,
-          email: userResponse.data.email,
-          isActive: userResponse.data.isActive,
+          id: updateResponse.data.id,
+          role: updateResponse.data.role,
+          email: updateResponse.data.email,
+          isActive: updateResponse.data.isActive,
         },
       });
     } catch (error) {
@@ -270,7 +276,7 @@ class AuthController {
 
       // Get user with his email
       const userResponse = await this.userService.getUserByEmail(email, {
-        attributes: ["id", "email", "password", "isActive"],
+        attributes: ["id", "email", "password", "isActive", "role"],
       });
 
       if (!userResponse || !userResponse.data) {
@@ -300,6 +306,7 @@ class AuthController {
       const payload = {
         id: user.id,
         email: user.email,
+        role: user.role,
       };
       const refreshTokenKey = `refresh:${user.email}`;
       const accessToken = await this.tokenService.generateAccessToken(payload);
@@ -352,8 +359,7 @@ class AuthController {
       const newAccessToken = await this.tokenService.generateAccessToken({
         id: payload.id,
         email: payload.email,
-        username: payload.username,
-        fullName: payload.fullName,
+        role: payload.role,
       });
 
       // Generate new refresh token
