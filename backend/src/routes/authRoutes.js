@@ -16,39 +16,39 @@ class AuthRoutes extends RouteInterface {
     this.router.post(
       "/register",
       Validator.validate(AuthSchemas.register()),
-      (req, res) => AuthController.register(req, res)
+      (req, res, next) => AuthController.register(req, res, next)
     );
     // Activate user account route
     this.router.post(
       "/activate",
       Validator.validate(AuthSchemas.activateAccount()),
-      (req, res) => AuthController.activateAccount(req, res)
+      (req, res, next) => AuthController.activateAccount(req, res, next)
     );
     // login route
     this.router.post(
       "/login",
       Validator.validate(AuthSchemas.login()),
-      (req, res) => AuthController.login(req, res)
+      (req, res, next) => AuthController.login(req, res, next)
     );
     // Refresh token route
-    this.router.post("/refresh-token", (req, res) => {
-      AuthController.refreshToken(req, res);
+    this.router.post("/refresh-token", (req, res, next) => {
+      AuthController.refreshToken(req, res, next);
     });
     // Resend confirmation code to user route
-    this.router.post("/resend-code", (req, res) => {
-      AuthController.confirmationcode(req, res);
+    this.router.post("/resend-code", (req, res, next) => {
+      AuthController.confirmationcode(req, res, next);
     });
     // Initiate reset password route
-    this.router.post("/reset-password", (req, res) => {
-      AuthController.sendResetPasswordCode(req, res);
+    this.router.post("/reset-password", (req, res, next) => {
+      AuthController.sendResetPasswordCode(req, res, next);
     });
     // Change password route
-    this.router.post("/change-password", (req, res) => {
-      AuthController.changePassword(req, res);
+    this.router.post("/change-password", (req, res, next) => {
+      AuthController.changePassword(req, res, next);
     });
     // logout route
-    this.router.post("/logout", (req, res) => {
-      AuthController.logout(req, res);
+    this.router.post("/logout", (req, res, next) => {
+      AuthController.logout(req, res, next);
     });
 
     this.addRoute({

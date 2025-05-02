@@ -54,6 +54,7 @@ class UserRepository {
       {
         username: userData.username,
         email: userData.email,
+        password: userData.password,
         fullName: userData.fullName,
         isActive: userData.isActive,
         updatedAt: new Date(),
@@ -66,11 +67,7 @@ class UserRepository {
   async deleteUser(id, { transaction } = {}) {
     transaction = transaction || this.transaction;
     const user = await this.findById(id, { transaction });
-    if (!user) {
-      return { success: false, message: "User not found" };
-    }
-    await user.destroy({ transaction });
-    return { success: true, message: "User deleted successfully" };
+    return await user.destroy({ transaction });
   }
 }
 

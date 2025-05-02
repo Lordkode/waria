@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 const AuthRoutes = require("./routes/authRoutes");
+const errorHandler = require("./errors/errorHandler");
 
 app.use(express.json());
 
@@ -12,5 +13,7 @@ routes.forEach((route) => {
 app.get("/", (req, res) => {
   res.send("Hello World !");
 });
+
+app.use(errorHandler);
 
 module.exports = app;

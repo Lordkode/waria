@@ -5,6 +5,7 @@ const EmailConnector = require("../integrations/emails/emailConnector");
 const sequelize = require("../../config/database");
 const Helpers = require("../utils/helpers");
 const redisClient = require("../../config/redis");
+const AppError = require("../errors/appError");
 
 class AuthController {
   constructor() {
@@ -14,10 +15,11 @@ class AuthController {
     this.emailConnector = new EmailConnector();
     this.helpers = Helpers;
     this.redisClient = redisClient;
+    this.AppError = AppError; // Référence à la classe, pas d'instanciation
   }
 
   // Register function
-  async register(req, res) {
+  async register(req, res, next) {
     const transaction = await sequelize.transaction();
     try {
       // Get user data from request body
@@ -44,9 +46,8 @@ class AuthController {
       );
 
       if (!newUserResponse.success) {
-        return res.status(400).json({
-          message: newUserResponse.message,
-        });
+        // Utiliser AppError pour passer l'erreur au middleware
+        return next(new this.AppError(newUserResponse.message, 400));
       }
 
       // New user Data
@@ -65,9 +66,7 @@ class AuthController {
       if (!newEmployeurResponse.success) {
         // Rollback transaction
         await transaction.rollback();
-        return res.status(400).json({
-          message: newEmployeurResponse.message,
-        });
+        return next(this.AppError(newEmployeurResponse.message, 400));
       }
 
       // Generate confirmation code
@@ -106,31 +105,33 @@ class AuthController {
           message = "Username already exists";
         }
 
-        return res.status(400).json({
-          message: message,
-        });
+        throw new this.AppError(message, 400);
+      };
+
+      // Si c'est déjà une AppError, la passer au middleware
+      if (error instanceof this.AppError) {
+        return next(error);
       }
-      return res.status(500).json({
-        message: "Internal server error",
-        error: error.message,
-      });
+
+      // Sinon créer une nouvelle erreur 500
+      return next(new this.AppError("Internal server error", 500, error));
     }
   }
 
   // Fonction to resend new confirmation code
-  async confirmationcode(req, res) {
+  async confirmationcode(req, res, next) {
     try {
       const { email } = req.body;
       const { data: user } = await this.userService.getUserByEmail(email, {
         attributes: ["id", "isActive"],
       });
 
-      if (!user) return res.status(404).json({ message: "User not found !" });
+      if (!user) return next(new this.AppError("User not found!", 404));
 
       if (user.isActive) {
-        return res
-          .status(400)
-          .json({ message: "Your account is already activate !" });
+        return next(
+          new this.AppError("Your account is already activated!", 400)
+        );
       }
 
       const key = `user:${email}`;
@@ -154,55 +155,60 @@ class AuthController {
 
       return res.status(200).json({
         success: true,
-        message: "New code send to user email adress !",
+        message: "New code sent to user email address!",
       });
     } catch (error) {
-      console.error("Error while resend confirmation code :", error);
-      res.status(500).json({
-        message: "Internal server error ",
-        error: error.message,
-      });
+      console.error("Error while resending confirmation code:", error);
+
+      if (error instanceof this.AppError) {
+        return next(error);
+      }
+
+      return next(new this.AppError("Internal server error", 500, error));
     }
   }
 
   // Activate Account function
-  async activateAccount(req, res) {
+  async activateAccount(req, res, next) {
     const { email, code } = req.body;
     const transaction = await sequelize.transaction();
     try {
+      // get user with that email
+      const userResponse = await this.userService.getUserByEmail(email, {
+        attributes: ["id", "email", "isActive"],
+        transaction,
+      });
+
+      // Get data and activate user
+      const user = userResponse.data;
+
+      if (user.isActive) {
+        return next(new this.AppError("User is already activated", 400));
+      }
       // Generate redis key
       const key = `user:${email}`;
 
       // Get content
       const storedCode = await this.redisClient.get(key);
 
-      // If ther is no code
+      // If there is no code
       if (!storedCode) {
-        return res.status(400).json({
-          message: "Confirmation code has expired or does not exist",
-        });
+        return next(
+          new this.AppError(
+            "Confirmation code has expired or does not exist",
+            400
+          )
+        );
       }
 
       // Compare code
       if (storedCode !== code) {
-        return res.status(400).json({ message: "Invalid confirmation code !" });
+        const error = new this.AppError("Invalid confirmation code!", 400);
+        return next(error);
       }
 
-      // get user with that email
-      const userResponse = await this.userService.getUserByEmail(email, {
-        attributes: ["id", "email", "isActive"],
-        transaction,
-      });
-      // G
       if (!userResponse.success) {
-        return res.status(404).json({ message: "User not found !" });
-      }
-
-      // Get data and activate user
-      const user = userResponse.data;
-
-      if (user.isActive) {
-        return res.status(400).json({ message: "User is already activate" });
+        return next(new this.AppError("User not found!", 404));
       }
 
       const updateResponse = await this.userService.updateUser(
@@ -222,12 +228,10 @@ class AuthController {
         isActive: updateResponse.data.isActive,
       };
 
-      const accessToken = await this.tokenService.generateAccessToken(payload);
+      const accessToken = this.tokenService.generateAccessToken(payload);
 
-      // Genrate refresh token
-      const refreshToken = await this.tokenService.generateRefreshToken(
-        payload
-      );
+      // Generate refresh token
+      const refreshToken = this.tokenService.generateRefreshToken(payload);
       const refreshTokenKey = `refresh:${updateResponse.data.email}`;
       await this.redisClient.set(refreshTokenKey, refreshToken, { EX: 604800 });
 
@@ -235,7 +239,7 @@ class AuthController {
       await transaction.commit();
 
       return res.status(200).json({
-        message: "User activate successfully !",
+        message: "User activated successfully!",
         token: accessToken,
         user: {
           id: userResponse.data.id,
@@ -245,35 +249,39 @@ class AuthController {
       });
     } catch (error) {
       await transaction.rollback();
-      console.error("Error while active user !");
-      return res.status(500).json({ message: "Internal server error ", error });
+      console.error("Error while activating user!");
+
+      if (error instanceof this.AppError) {
+        return next(error);
+      }
+
+      return next(new this.AppError("Internal server error", 500, error));
     }
   }
 
   // Login function
-  async login(req, res) {
+  async login(req, res, next) {
     const { email, password } = req.body;
     try {
       // check if email or password is passed to request body
       if (!email || !password) {
-        return res
-          .status(400)
-          .json({ message: "Email and password required !" });
+        return next(new this.AppError("Email and password required!", 400));
       }
 
       // Get user with his email
       const userResponse = await this.userService.getUserByEmail(email, {
         attributes: ["id", "email", "password", "isActive"],
       });
+
       if (!userResponse || !userResponse.data) {
-        return res
-          .status(404)
-          .json({ message: "User with that email not found !" });
+        return next(new this.AppError("User with that email not found!", 404));
       }
 
       const user = userResponse.data;
       if (!user.isActive) {
-        return res.status(403).json({ message: "Unauthorized !" });
+        return next(
+          new this.AppError("Unauthorized! Account not activated.", 403)
+        );
       }
 
       // Check password match
@@ -282,10 +290,10 @@ class AuthController {
         user.password
       );
 
+      console.log("password comparaison: ", isPasswordMatch);
+
       if (!isPasswordMatch) {
-        return res.status(400).json({
-          message: "Password is incorrect !",
-        });
+        return next(new this.AppError("Password is incorrect!", 400));
       }
 
       // Generate access and refresh token
@@ -302,25 +310,26 @@ class AuthController {
 
       return res.status(200).json({
         success: true,
-        message: "User logging successfully !",
+        message: "User logged in successfully!",
         token: accessToken,
       });
     } catch (error) {
-      console.error("Error while connecting user !");
-      return res
-        .status(500)
-        .json({ message: "Internal server error :", error });
+      console.error("Error while connecting user!");
+
+      if (error instanceof this.AppError) {
+        return next(error);
+      }
+
+      return next(new this.AppError("Internal server error", 500, error));
     }
   }
 
   // Refresh Token function
-  async refreshToken(req, res) {
+  async refreshToken(req, res, next) {
     try {
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({
-          message: "Authorization header missing !",
-        });
+        return next(new this.AppError("Authorization header missing!", 401));
       }
 
       const oldAccessToken = authHeader.split(" ")[1];
@@ -328,7 +337,7 @@ class AuthController {
       // Read payload even token expired
       const payload = await this.tokenService.decodeToken(oldAccessToken);
       if (!payload) {
-        return res.status(401).json({ message: "Invalid access token !" });
+        return next(new this.AppError("Invalid access token!", 401));
       }
 
       // get refresh token from accesstoken email
@@ -336,7 +345,7 @@ class AuthController {
       const storedRefreshToken = await this.redisClient.get(refresTokenKey);
 
       if (!storedRefreshToken) {
-        return res.status(401).json({ message: "Refresh token not found !" });
+        return next(new this.AppError("Refresh token not found!", 401));
       }
 
       // Generate new access token
@@ -350,19 +359,22 @@ class AuthController {
       // Generate new refresh token
 
       return res.status(200).json({
-        message: "New access token generate successfully !",
+        message: "New access token generated successfully!",
         token: newAccessToken,
       });
     } catch (error) {
-      console.error("Error during token refresh :", error);
-      return res
-        .status(500)
-        .json({ message: "Internal server error", error: error.message });
+      console.error("Error during token refresh:", error);
+
+      if (error instanceof this.AppError) {
+        return next(error);
+      }
+
+      return next(new this.AppError("Internal server error", 500, error));
     }
   }
 
   // Send Reset password code
-  async sendResetPasswordCode(req, res) {
+  async sendResetPasswordCode(req, res, next) {
     try {
       const { email } = req.body;
 
@@ -370,9 +382,7 @@ class AuthController {
         attributes: ["id"],
       });
       if (!userResponse || !userResponse.data) {
-        return res
-          .status(404)
-          .json({ message: "User with that email not found !" });
+        return next(new this.AppError("User with that email not found!", 404));
       }
 
       const key = `reset:${email}`;
@@ -392,26 +402,28 @@ class AuthController {
 
       return res.status(200).json({
         success: true,
-        message: `Reset password send to ${email}`,
+        message: `Reset password code sent to ${email}`,
       });
     } catch (error) {
-      console.error("Error sending reset password code :", error);
-      return res.status(500).json({
-        message: "Internal server error",
-        error: error.message,
-      });
+      console.error("Error sending reset password code:", error);
+
+      if (error instanceof this.AppError) {
+        return next(error);
+      }
+
+      return next(new this.AppError("Internal server error", 500, error));
     }
   }
 
   // Change password
-  async changePassword(req, res) {
+  async changePassword(req, res, next) {
     const { email, code, password } = req.body;
     const transaction = await sequelize.transaction();
     try {
       if (!email || !code) {
-        return res.status(400).json({
-          message: "Email or verification code is required !",
-        });
+        return next(
+          new this.AppError("Email and verification code are required!", 400)
+        );
       }
 
       const userResponse = await this.userService.getUserByEmail(email, {
@@ -419,9 +431,9 @@ class AuthController {
         transaction,
       });
       if (!userResponse || !userResponse.data) {
-        return res.status(404).json({
-          message: `User with email : ${email} not found !`,
-        });
+        return next(
+          new this.AppError(`User with email: ${email} not found!`, 404)
+        );
       }
 
       // redis get code
@@ -429,20 +441,23 @@ class AuthController {
       const storedCode = await this.redisClient.get(key);
 
       if (!storedCode) {
-        return res.status(401).json({
-          message: "Reset password code expire; please aske new code",
-        });
+        return next(
+          new this.AppError(
+            "Reset password code expired; please request a new code",
+            401
+          )
+        );
       }
 
       if (code !== storedCode) {
-        return res.status(400).json({
-          message: "Reset password code is incorrect !",
-        });
+        return next(
+          new this.AppError("Reset password code is incorrect!", 400)
+        );
       }
 
       // Hashed password
       const hashedPassword = await this.helpers.hashPassword(password);
-      await this.userService.updateUser(
+      const updatedResponse = await this.userService.updateUser(
         userResponse.data.id,
         {
           password: hashedPassword,
@@ -450,33 +465,35 @@ class AuthController {
         { transaction }
       );
 
+      console.log("Update user :", updatedResponse);
+
       await this.redisClient.del(key);
 
       await transaction.commit();
 
       return res.status(200).json({
         success: true,
-        message: "Password changed successfully !",
+        message: "Password changed successfully!",
       });
     } catch (error) {
       await transaction.rollback();
-      console.error("Error while change password", error);
-      return res.status(500).json({
-        message: "Internal server error",
-        error: error.message,
-      });
+      console.error("Error while changing password", error);
+
+      if (error instanceof this.AppError) {
+        return next(error);
+      }
+
+      return next(new this.AppError("Internal server error", 500, error));
     }
   }
 
   // Logout function
-  async logout(req, res) {
+  async logout(req, res, next) {
     try {
       // Get token from header
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({
-          message: "Authorization header missing!",
-        });
+        return next(new this.AppError("Authorization header missing!", 401));
       }
 
       // Get access token
@@ -485,9 +502,7 @@ class AuthController {
       // Decode accessToken
       const payload = await this.tokenService.decodeToken(accessToken);
       if (!payload) {
-        return res.status(401).json({
-          message: "Invalid access token !",
-        });
+        return next(new this.AppError("Invalid access token!", 401));
       }
 
       // Delete refresh token
@@ -500,14 +515,16 @@ class AuthController {
 
       return res.status(200).json({
         success: true,
-        message: "User logged out successfully !",
+        message: "User logged out successfully!",
       });
     } catch (error) {
-      console.error("Error during logout :", error);
-      return res.status(500).json({
-        message: "Internal server error",
-        error: error.message,
-      });
+      console.error("Error during logout:", error);
+
+      if (error instanceof this.AppError) {
+        return next(error);
+      }
+
+      return next(new this.AppError("Internal server error", 500, error));
     }
   }
 }

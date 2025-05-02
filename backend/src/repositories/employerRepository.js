@@ -52,6 +52,13 @@ class EmployeurRepository {
       { transaction }
     );
   }
+
+  // Method to delete employer
+  async deleteEmployer(id, { transaction } = {}) {
+    transaction = transaction || this.transaction;
+    const employer = await this.findById(id, { transaction });
+    return await employer.destroy({ transaction });
+  }
 }
 
 module.exports = new EmployeurRepository();
