@@ -37,6 +37,7 @@ class UserRepository {
         username: userData.username,
         password: hashedPassword,
         email: userData.email,
+        role: userData.role,
         fullName: userData.fullName,
         createdAt: new Date(),
         updatedAt: new Date(),
