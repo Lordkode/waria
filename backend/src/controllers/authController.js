@@ -105,8 +105,8 @@ class AuthController {
           message = "Username already exists";
         }
 
-        throw new this.AppError(message, 400);
-      };
+        return next(new this.AppError(message, 400));
+      }
 
       // Si c'est déjà une AppError, la passer au middleware
       if (error instanceof this.AppError) {

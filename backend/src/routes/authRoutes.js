@@ -1,7 +1,7 @@
 const express = require("express");
 const AuthController = require("../controllers/authController");
 const RouteInterface = require("./routeInterface");
-const Validator = require("../middlewares/authMiddlewares");
+const AuthMiddleware = require("../middlewares/authMiddlewares");
 const AuthSchemas = require("../validations/schemas/authSchema");
 
 class AuthRoutes extends RouteInterface {
@@ -15,19 +15,19 @@ class AuthRoutes extends RouteInterface {
     // Register route
     this.router.post(
       "/register",
-      Validator.validate(AuthSchemas.register()),
+      AuthMiddleware.validate(AuthSchemas.register()),
       (req, res, next) => AuthController.register(req, res, next)
     );
     // Activate user account route
     this.router.post(
       "/activate",
-      Validator.validate(AuthSchemas.activateAccount()),
+      AuthMiddleware.validate(AuthSchemas.activateAccount()),
       (req, res, next) => AuthController.activateAccount(req, res, next)
     );
     // login route
     this.router.post(
       "/login",
-      Validator.validate(AuthSchemas.login()),
+      AuthMiddleware.validate(AuthSchemas.login()),
       (req, res, next) => AuthController.login(req, res, next)
     );
     // Refresh token route
@@ -43,13 +43,17 @@ class AuthRoutes extends RouteInterface {
       AuthController.sendResetPasswordCode(req, res, next);
     });
     // Change password route
-    this.router.post("/change-password", (req, res, next) => {
-      AuthController.changePassword(req, res, next);
-    });
+    this.router.post(
+      "/change-password",
+      AuthMiddleware.isAuthenticated,
+      (req, res, next) => AuthController.changePassword(req, res, next)
+    );
     // logout route
-    this.router.post("/logout", (req, res, next) => {
-      AuthController.logout(req, res, next);
-    });
+    this.router.post(
+      "/logout",
+      AuthMiddleware.isAuthenticated,
+      (req, res, next) => AuthController.logout(req, res, next)
+    );
 
     this.addRoute({
       path: "/auth",
